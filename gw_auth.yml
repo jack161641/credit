@@ -1,0 +1,19 @@
+- hosts: 127.0.0.1
+  connection: local
+  tasks:
+  - name: wait 40s
+    wait_for: timeout=40
+  - name:  check {{TARGET_HOST}} shanghai credit service status
+    shell: /usr/local/etc/zabbix_agentd.conf.d/gw_mock_encrypt_sh.py {{TARGET_HOST}}
+    register: status
+    failed_when: status.stdout.find('running') == -1
+  - name: Print shanghai credit service tatus
+    debug:
+      msg: "{{ status.stdout }}"
+  - name:  check {{TARGET_HOST}} chengdu credit service status
+    shell: /usr/local/etc/zabbix_agentd.conf.d/gw_mock_encrypt_cd.py {{TARGET_HOST}}
+    register: status
+    failed_when: status.stdout.find('running') == -1
+  - name: Print chengdu credit service status
+    debug:
+      msg: "{{ status.stdout }}"

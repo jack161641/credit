@@ -1,0 +1,137 @@
+---
+#- hosts: 127.0.0.1
+#  connection: local
+#  tags:
+#  - deploy
+#  tasks:
+#  - name: Download war package to {{WAR_HOME}}/{{JOB_NAME}}
+#    command: /opt/jenkins_original/ftp_download.py {{JOB_NAME}}
+#  - name: wait until the {{WAR_HOME}}/{{JOB_NAME}}/{{JOB_NAME}}.war is present before continuing
+#    wait_for: path={{WAR_HOME}}/{{JOB_NAME}}/{{JOB_NAME}}.war
+#- hosts: "{{ TARGET_HOST }}"
+#  tags:
+#  - deploy
+#  tasks:
+#  - name: Find backup file
+#    shell: /usr/bin/find /opt/idc/apps/tomcat-{{ JOB_NAME }}/webapps -type f -name "*.war.*" -exec ls -l {} \;
+#    register: file_list
+#  - name: Print backup file
+#    debug:
+#      msg: "{{ file_list.stdout_lines }}"
+#  - name: Delete backup file
+#    shell: /usr/bin/find /opt/idc/apps/tomcat-{{ JOB_NAME }}/webapps -type f -name "*.war.*" -exec rm -rf {} \;
+#  - name: Stop {{JOB_NAME}} listen
+#    shell: /opt/idc/apps/tomcat-{{JOB_NAME}}/bin/shutdown.sh
+#  - name: Kill {{JOB_NAME}} process
+#    shell: ps -efww|grep -w {{JOB_NAME}}|grep -v grep|awk -F ' ' '{ print $2 }'|xargs kill -9
+#    ignore_errors: True
+#  - name: Replace {{JOB_NAME}} war file
+#    copy: src={{WAR_HOME}}/{{JOB_NAME}}/{{JOB_NAME}}.war
+#          dest=/opt/idc/apps/tomcat-{{JOB_NAME}}/webapps/{{JOB_NAME}}.war
+#          backup=yes
+#  - name: Start {{JOB_NAME}} service
+#    shell: nohup /opt/idc/apps/tomcat-{{JOB_NAME}}/bin/startup.sh
+#  - name: check {{ JOB_NAME }} process whether exist and unique
+#    shell: ps aux |grep {{ JOB_NAME }}|grep -v grep|wc -l
+#    register: process_num
+#    failed_when: process_num.stdout_lines == 0
+#  - name:  check {{ JOB_NAME }} process port whether exist
+#    shell: netstat -antupl|grep {{ SERVER_PORT }}|wc -l
+#    register: port_count
+#    failed_when: port_count.stdout_lines == 0
+#
+#- hosts: "{{ TARGET_HOST }}"
+#  tags:
+##  - stop
+#  tasks:
+#  - name: Stop {{JOB_NAME}} listen
+#    shell: /opt/idc/apps/tomcat-{{JOB_NAME}}/bin/shutdown.sh
+#  - name: Kill {{JOB_NAME}} process
+#    shell: ps -efww|grep -w {{JOB_NAME}}|grep -v grep|awk -F ' ' '{ print $2 }'|xargs kill -9
+#    ignore_errors: True
+#  - name: check {{ JOB_NAME }} process whether exist and unique
+#    shell: ps aux |grep {{ JOB_NAME }}|grep -v grep|wc -l
+#    register: process_num
+#    failed_when: process_num.stdout_lines == 0
+#  - name:  check {{ JOB_NAME }} process port whether exist
+#    shell: netstat -antupl|grep {{ SERVER_PORT }}|wc -l
+#    register: port_count
+#    failed_when: port_count.stdout_lines == 0
+#- hosts: "{{ TARGET_HOST }}"
+#  tags:
+#  - start
+#  tasks:
+#  - name: Start {{JOB_NAME}} service
+#    shell: nohup /opt/idc/apps/tomcat-{{JOB_NAME}}/bin/startup.sh
+#  - name: check {{ JOB_NAME }} process whether exist and unique
+#    shell: ps aux |grep {{ JOB_NAME }}|grep -v grep|wc -l
+#    register: process_num
+#    failed_when: process_num.stdout_lines == 0
+#  - name:  check {{ JOB_NAME }} process port whether exist
+#    shell: netstat -antupl|grep {{ SERVER_PORT }}|wc -l
+#    register: port_count
+#    failed_when: port_count.stdout_lines == 0
+#
+- hosts: "{{ TARGET_HOST }}"
+  tags:
+  - reboot
+  tasks:
+  - name: qu ip
+    shell: ip a|grep "scope global "|awk '{print $2}'|cut -d '/' -f1
+    register: ip
+  - name: sed
+    shell: cd /opt/idc/apps/tomcat-{{JOB_NAME}}/bin/ && sed -i '/limitations under/a\CATALINA_OPTS="$CATALINA_OPTS -Djava.rmi.server.hostname={{ ip.stdout }} -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=12350"' catalina.sh  
+  - name: Stop {{JOB_NAME}} listen
+    shell: /opt/idc/apps/tomcat-{{JOB_NAME}}/bin/shutdown.sh
+  - name: Kill {{JOB_NAME}} process
+    shell: ps -efww|grep -w {{JOB_NAME}}|grep -v grep|awk -F ' ' '{ print $2 }'|xargs kill -9
+    ignore_errors: True
+  - name: Start {{JOB_NAME}} service
+    shell: nohup /opt/idc/apps/tomcat-{{JOB_NAME}}/bin/startup.sh
+  - name: check {{ JOB_NAME }} process whether exist and unique
+    shell: ps aux |grep {{ JOB_NAME }}|grep -v grep|wc -l
+    register: process_num
+    failed_when: process_num.stdout_lines == 0
+  - name:  check {{ JOB_NAME }} process port whether exist 
+    shell: netstat -antupl|grep {{ SERVER_PORT }}|wc -l
+    register: port_count
+    failed_when: port_count.stdout_lines == 0
+#- hosts: "{{ TARGET_HOST }}"
+#  tags:
+#  - fallback
+#  tasks:
+#  - name: Backup file whether exist
+#    shell: /usr/bin/find /opt/idc/apps/tomcat-{{ JOB_NAME }}/webapps -type f -name "*.war.*" -exec ls -l {} \;
+#    register: result
+#  - name: Echo Backup file
+#    debug:
+#      msg: "{{ result.stdout }}"
+#  - name: Backup file whether is only
+#    debug:
+#      msg: "More than one backup file or haven't backup file,fallback terminal"
+#    when: result.stdout.count('war') != 1
+#  - name: Backup file whether is only
+#    debug: 
+#      msg: "Backup file is only one,execute fallback"
+#    when: result.stdout.count('war') == 1
+#  - name: Stop {{JOB_NAME}} listen
+#    shell: /opt/idc/apps/tomcat-{{JOB_NAME}}/bin/shutdown.sh
+#    when: result.stdout.count('war') == 1
+#  - name: Kill {{JOB_NAME}} process
+#    shell: ps -efww|grep -w {{JOB_NAME}}|grep -v grep|awk -F ' ' '{ print $2 }'|xargs kill -9
+#    ignore_errors: True
+#    when: result.stdout.count('war') == 1
+#  - name: Replace {{JOB_NAME}} war file
+#    shell:  /usr/bin/find /opt/idc/apps/tomcat-{{ JOB_NAME }}/webapps -type f -name "*.war.*" -exec cp {} /opt/idc/apps/tomcat-{{ JOB_NAME }}/webapps/{{JOB_NAME}}.war \;
+#    when: result.stdout.count('war') == 1
+#  - name: Start {{JOB_NAME}} service
+#    shell: nohup /opt/idc/apps/tomcat-{{JOB_NAME}}/bin/startup.sh
+#    when: result.stdout.count('war') == 1
+#  - name: check {{ JOB_NAME }} process whether exist and unique
+#    shell: ps aux |grep {{ JOB_NAME }}|grep -v grep|wc -l
+#    register: process_num
+#    failed_when: process_num.stdout_lines == 0
+#  - name:  check {{ JOB_NAME }} process port whether exist 
+#    shell: netstat -antupl|grep {{ SERVER_PORT }}|wc -l
+#    register: port_count
+#    failed_when: port_count.stdout_lines == 0

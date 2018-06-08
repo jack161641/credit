@@ -1,0 +1,12 @@
+- hosts: 127.0.0.1
+  connection: local
+  tasks:
+  - name: wait 15s
+    wait_for: timeout=15
+  - name:  check {{TARGET_HOST}} credit gate service status
+    shell: /usr/local/etc/zabbix_agentd.conf.d/gate_check.py {{TARGET_HOST}}
+    register: status
+    failed_when: status.stdout.find('running') == -1
+  - name: Print shanghai credit service tatus
+    debug:
+      msg: "{{ status.stdout }}"

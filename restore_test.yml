@@ -1,0 +1,17 @@
+---
+- hosts: "{{ JOB_NAME }}"
+  tasks:
+  - name: List backup war package
+    shell: ls -l  /opt/idc/apps/tomcat-{{JOB_NAME}}/webapps/{{JOB_NAME}}.war.2017*|wc -l
+    register: result
+  - name: Stop {{JOB_NAME}} service
+    shell: ps -efww|grep -w {{JOB_NAME}}|grep -v grep|awk -F ' ' '{ print $2 }'|xargs kill -9
+    when: result == 1
+    ignore_errors: True
+  - name: Delete original war package 
+    shell: rm /opt/idc/apps/tomcat-{{JOB_NAME}}/webapps/{{JOB_NAME}}.war
+    when: result == 1
+  - name: restore backup war package
+    shell: mv /opt/idc/apps/tomcat-{{JOB_NAME}}/webapps/{{JOB_NAME}}.war.2017* /opt/idc/apps/tomcat-{{JOB_NAME}}/webapps/{{JOB_NAME}}.war
+  - name:  Start {{JOB_NAME}} service
+    shell:  /opt/idc/apps/tomcat-{{JOB_NAME}}/bin/startup.sh

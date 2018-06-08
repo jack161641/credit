@@ -1,0 +1,57 @@
+---
+- hosts: 127.0.0.1
+  strategy: debug
+  tags:
+  - deploy
+  tasks:
+  - name: download tar file to localhost
+    shell: cd /opt/share/release/{{ JOB_NAME }} && rm -f {{ JOB_NAME }}* && wget ftp://deploy:deploy@10.214.124.134/deploy-packages/{{ JOB_NAME }}.tar.gz
+- hosts: "{{ TARGET_HOSTS }}"
+  tags:
+  - deploy
+  tasks:
+  - name: backup directory
+    archive:
+      path: "{{ WAR_HOME }}"
+      dest: "{{ NGINX_ROOT }}/{{ JOB_NAME }}/{{ JOB_NAME }}.tar.gz"
+  - name: delete directory
+    file:
+      path: "{{ WAR_HOME }}"
+      state: absent
+  - name: uncompress package
+    unarchive:
+      src: "/opt/share/release/{{ JOB_NAME }}/{{ JOB_NAME }}.tar.gz"
+      dest: "{{ NGINX_ROOT }}/{{ JOB_NAME }}"
+  - name: RELOAD {{ JOB_NAME }} service
+    shell: nginx -s reload
+- hosts: "{{ TARGET_HOSTS }}"
+  tags:
+  - reboot
+  tasks:
+  - name: reload service
+    shell: sudo nginx -s reload
+- hosts: "{{ TARGET_HOSTS }}"
+  tags:
+  - fallback
+  tasks:
+   - name: find backup file
+     shell: cd {{ WAR_HOME }} && cd .. && /bin/find . -name {{ JOB_NAME }}.tar.gz -exec ls -l {} \;
+     register: file
+   - name: print backup file
+     debug: msg=“{{ file.stdout_lines }}“
+   - name: backup file is not only
+     debug: msg="{{ JOB_NAME }}.tar.gz is not only"
+     when: file.stdout.count('tar') != 1
+   - name: delete directory
+     file:
+       path: "{{ WAR_HOME }}"
+       state: absent
+     when: file.stdout.count('tar') == 1
+   - name: uncompress backupfile
+     unarchive:
+       src: "{{ NGINX_ROOT }}/{{ JOB_NAME }}.tar.gz"
+       dest: "{{ NGINX_ROOT }}"
+     when: file.stdout.count('tar') == 1
+   - name: reload {{JOB_NAME}} service
+     shell: nginx -s reload
+     when: file.stdout.count('tar') == 1

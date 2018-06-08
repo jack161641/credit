@@ -1,0 +1,34 @@
+---
+- hosts: "{{ TARGET_HOST }}"
+  tags:
+  - deploy
+  tasks:
+  - name: Delete backup file
+    shell: rm -rf /opt/idc/apps/tomcat/webapps/{{JOB_NAME}}.war.*
+    ignore_errors: True
+  - name: Stop {{JOB_NAME}} listen
+    shell: /opt/idc/apps/tomcat/bin/shutdown.sh
+  - name: Kill {{JOB_NAME}} process
+    shell: ps -efww|grep -w java|grep -v grep|awk -F ' ' '{ print $2 }'|xargs kill -9
+    ignore_errors: True
+#  - name: Replace  config file
+#    copy: src=/opt/jenkins_original/cpt-web-env.properties
+#          dest=/opt/idc/apps/tomcat/config/cpt-web-env.properties
+#          backup=yes
+  - name: Replace {{JOB_NAME}} war file
+    copy: src=/opt/jenkins_original/{{JOB_NAME}}.war
+          dest=/opt/idc/apps/tomcat/webapps/{{JOB_NAME}}.war
+          backup=yes
+  - name: Start {{JOB_NAME}} service
+    shell: nohup /opt/idc/apps/tomcat/bin/startup.sh
+- hosts: "{{ JOB_NAME }}"
+  tags:
+  - reboot
+  tasks:
+  - name: Stop {{JOB_NAME}} listen
+    shell: /opt/idc/apps/tomcat/bin/shutdown.sh
+  - name: Kill {{JOB_NAME}} process
+    shell: ps -efww|grep -w java|grep -v grep|awk -F ' ' '{ print $2 }'|xargs kill -9
+    ignore_errors: True
+  - name: Start {{JOB_NAME}} service
+    shell: nohup /opt/idc/apps/tomcat/bin/startup.sh

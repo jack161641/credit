@@ -1,0 +1,30 @@
+- hosts: "{{ JOB_NAME }}"
+  tasks:
+  - name: find backup file
+    shell: /usr/bin/find /opt/idc/apps/tomcat-{{ JOB_NAME }}/webapps -type f -name "*.war.*" -exec ls -l {} \;
+    register: file_list
+  - name: print backup file 
+    debug:
+      msg: "{{ file_list.stdout_lines }}"
+#  - find:
+#      path: "/opt/idc/apps/tomcat-{{ JOB_NAME }}/webapps"
+#      patterns: "*.war.*"
+#    register: file_list
+#  - set_fact:
+#     file_list: |
+#        {% set res = [] -%}
+#        {% for key in files_result.keys() -%}
+#           {% for value in files_result[key] -%}
+#             {% set ignored = res.extend([{'filename': value}]) -%}
+#           {%- endfor %}
+#        {%- endfor %}
+#        {{ res }}
+
+#  - name: let's debug the crap out of this
+#    debug: var=file_list
+#  - name: let's show path
+#    debug:
+#      msg: path= '{{ item.path }}'
+#    with_items: "{{ file_list.files }}"
+    
+     

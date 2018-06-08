@@ -1,0 +1,34 @@
+---
+- hosts: "{{ JOB_NAME }}"
+  tasks:
+  - name: check process
+    shell: ps aux |grep {{ JOB_NAME }}|grep -v grep|wc -l
+    register: result
+  - name: print result
+    debug: msg="{{result.stdout}}"
+  - name: service is not start fail
+    debug: msg="{{ JOB_NAME }} IS NOT START"
+    when: result.stdout == 0
+  - name: start service
+    debug: msg="{{ JOB_NAME }} IS start sucess"
+    when: result.stdout != 0
+  - name: get port count
+    shell: netstat -antupl|grep {{ server_port }}|wc -l
+    register: count
+  - name: get port
+    shell: netstat -ntpl|grep {{ server_port }}|awk -F ':| *' '{print $7}'
+    register: port
+  - name: print port
+    debug: msg="{{ port.stdout }}"
+  - name: print all port
+    shell: netstat -antupl|grep {{ server_port }}
+    register: ports
+  - name: print ports
+    debug: msg="{{ ports.stdout }}"
+  - name: port is start
+    debug: msg=" {{ JOB_NAME }} port is start"
+    when: count.stdout != 0
+  - name: port is not start
+    debug: msg="{{ JOB_NAME }} port is not start"
+    when: count.stdout == 0
+

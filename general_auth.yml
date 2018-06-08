@@ -1,0 +1,12 @@
+- hosts: 127.0.0.1
+  connection: local
+  tasks:
+  - name: wait 15s
+    wait_for: timeout=15
+  - name:  check {{TARGET_HOST}} {{JOB_NAME}} service status
+    shell: /usr/local/etc/zabbix_agentd.conf.d/{{JOB_NAME}}_check.py {{TARGET_HOST}}
+    register: status
+    failed_when: status.stdout.find('running') == -1
+  - name: Print {{JOB_NAME}} service tatus
+    debug:
+      msg: "{{ status.stdout }}"

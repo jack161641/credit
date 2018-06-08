@@ -1,0 +1,117 @@
+---
+- hosts: 127.0.0.1
+  tags:
+  - deploy
+  tasks:
+  - name: download tar file to localhost
+    shell: cd /opt/share/release/{{ JOB_NAME }}/ && rm -f {{ JOB_NAME }}* && wget ftp://deploy:deploy@10.214.124.134/deploy-packages/{{ JOB_NAME }}.tar.gz
+- hosts: "{{ TARGET_HOSTS }}"
+  tags:
+  - deploy
+  tasks:
+  - name: backup file
+    shell: cd {{ WAR_HOME }}  && cd .. && tar cvfz {{ JOB_NAME }}.`date +%Y-%m-%d`.tar.gz {{ JOB_NAME }}
+  - name: mkdir files directory
+    file: path=/tmp/{{ JOB_NAME }}_backup state=directory
+  - name: cp backup file to backup_file DIRECTORY
+    shell: cd {{ WAR_HOME }} && cd .. && cp {{ JOB_NAME }}.`date +%Y-%m-%d`.tar.gz /tmp/{{ JOB_NAME }}_backup/ 
+  - name: find {{ JOB_NAME }}.tar.gz counts
+    shell: cd {{ WAR_HOME }} && cd .. && find . -name {{ JOB_NAME }}.tar.gz|wc -l
+    register: count
+  - debug: msg="{{count.stdout}}"
+  - name: delete {{ JOB_NAME }}.tar.gz when exits
+    shell: cd {{ WAR_HOME }} && cd .. && rm -rf {{ JOB_NAME }}.tar.gz  
+    when: count.stdout != 0 
+  - name: rename backup tar file
+    raw: cd {{ WAR_HOME }} && cd .. && mv {{ JOB_NAME }}*.tar.gz {{ JOB_NAME }}.tar.gz
+  - name: send {{JOB_NAME}}.tar.gz to {{JOB_NAME}} host
+    copy: src=/opt/share/release/{{JOB_NAME }}/{{JOB_NAME}}.tar.gz
+          dest=/tmp/
+          force=yes
+  - name: delete service file
+    shell: cd {{ WAR_HOME }} && rm -rf *
+  - name: uncompress {{JOB_NAME}}.tar.gz to {{ WAR_HOME }}
+    shell: cd /tmp/ && tar xf {{ JOB_NAME }}.tar.gz && mv {{ JOB_NAME }}/* {{ WAR_HOME }}/
+  - name: delete {{ JOB_NAME }} uncompress directory
+    shell: cd /tmp/ && rm -rf {{ JOB_NAME }}
+  - name: restart node {{ NODE_NAME }}
+    shell: nohup {{ PM2 }} restart {{ NODE_NAME }}
+  - name: check process
+    shell: ps aux |grep {{ NODE_NAME }}|grep -v grep|wc -l
+    register: result
+  - fail:
+      msg: "{{ NODE_NAME }} IS NOT START"
+    when: result.stdout == 0
+  - name: start service
+    debug: msg="{{ NODE_NAME }} IS start sucess"
+    when: result.stdout != 0
+  - name: get port count
+    shell: netstat -antupl|grep {{ SERVER_PORT }}|wc -l
+    register: count
+  - name: port is start
+    debug: msg=" {{ NODE_NAME }} port is start"
+    when: count.stdout != 0
+  - name: port is not start
+    debug: msg="{{ JOB_NAME }} port is not start"
+    when: count.stdout == 0
+- hosts: "{{ TARGET_HOSTS }}"
+  tags:
+  - reboot
+  tasks:
+  - name: restart node {{ NODE_NAME }}
+    shell: nohup {{ PM2 }} restart {{ NODE_NAME }}
+  - name: check process
+    shell: ps aux |grep {{ NODE_NAME }}|grep -v grep|wc -l
+    register: result
+  - fail:
+      msg: "{{ NODE_NAME }} IS NOT START"
+    when: result.stdout == 0
+  - name: start service
+    debug: msg="{{ NODE_NAME }} IS start sucess"
+    when: result.stdout != 0
+  - name: get port count
+    shell: netstat -antupl|grep {{ SERVER_PORT }}|wc -l
+    register: count
+  - name: port is start
+    debug: msg=" {{ NODE_NAME }} port is start"
+    when: count.stdout != 0
+  - name: port is not start
+    debug: msg="{{ JOB_NAME }} port is not start"
+    when: count.stdout == 0
+- hosts: "{{ TARGET_HOSTS }}"
+  tags:
+  - fallback
+  tasks:
+  - name: find bacuup file
+    shell: cd {{ WAR_HOME }} && cd .. && /bin/find . -name {{ JOB_NAME }}.tar.gz -exec ls -l {} \;
+    register: file
+  - name: print backup file
+    debug: msg=“{{ file.stdout_lines }}“
+  - name: backup file is not only
+    debug: msg="{{ JOB_NAME }}.tar.gz is not only"
+    when: file.stdout.count('tar') != 1
+  - name: delete service directory and uncompress backupfile
+    shell: cd {{ WAR_HOME }} && cd .. && rm -rf {{ JOB_NAME }} && tar axf {{ JOB_NAME }}.tar.gz
+    when: file.stdout.count('tar') == 1
+  - name: restart node {{ NODE_NAME }}
+    shell: nohup {{ PM2 }} restart {{ NODE_NAME }}
+    when: file.stdout.count('tar') == 1
+  - name: check process
+    shell: ps aux |grep {{ NODE_NAME }}|grep -v grep|wc -l
+    register: result
+  - fail:
+      msg: "{{ NODE_NAME }} IS NOT START"
+    when: result.stdout == 0
+  - name: start service
+    debug: msg="{{ NODE_NAME }} IS start sucess"
+    when: result.stdout != 0
+  - name: get port count
+    shell: netstat -antupl|grep {{ SERVER_PORT }}|wc -l
+    register: count
+  - name: port is start
+    debug: msg=" {{ NODE_NAME }} port is start"
+    when: count.stdout != 0
+  - name: port is not start
+    debug: msg="{{ JOB_NAME }} port is not start"
+    when: count.stdout == 0
+

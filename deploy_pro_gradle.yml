@@ -1,0 +1,83 @@
+---
+- hosts: 127.0.0.1
+  tags:
+  - deploy
+  tasks:
+  - name: download the jar package 
+    shell: cd /opt/share/release/{{ JOB_NAME }} && rm -f {{ WAR_NAME }}* && wget ftp://deploy:deploy@10.214.124.134:21/deploy-packages/wanda-cloud-kyc/{{ WAR_NAME }}.war 
+- hosts: "{{ TARGET_HOST }}"
+  tags:
+  - deploy
+  tasks:
+  - name: Find backup file
+    shell: /bin/find /opt/idc/apps/{{ JOB_NAME }}/webapps/ -type f -name "*.war.*" -exec ls -l {} \;
+    register: file_list
+  - name: create backup directory
+    file: path=/opt/{{ JOB_NAME }}_backup owner=root group=root state=directory
+  - name: bacpup {{ JOB_NAME }} file to {{ JOB_NAME }}_backup
+    raw: cp /opt/idc/apps/{{JOB_NAME}}/webapps/{{ WAR_NAME }}.war /opt/{{ JOB_NAME }}_backup/{{ WAR_NAME }}-`date +%Y-%m-%d`.war
+  - name: Print backup file
+    debug:
+      msg: "{{ file_list.stdout_lines }}"
+  - name: Delete backup file
+    shell: /bin/find /opt/idc/apps/{{ JOB_NAME }}/webapps/ -type f -name "*.war.*" -exec rm -rf {} \;
+  - name: Stop {{JOB_NAME}} service listen
+    shell: /opt/idc/apps/{{JOB_NAME}}/bin/shutdown.sh
+    ignore_errors: True
+  - name: Kill {{JOB_NAME}} process
+    shell: ps -efww|grep -w {{WAR_NAME}}|grep -v grep|awk -F ' ' '{ print $2 }'|xargs kill -9
+    ignore_errors: True
+  - name: Replace {{JOB_NAME}} war file
+    copy: 
+        src={{ item }}
+        dest=/opt/idc/apps/{{JOB_NAME}}/webapps/{{WAR_NAME}}.war
+        backup=yes
+    with_fileglob:
+         /opt/share/release/{{ JOB_NAME }}/{{ WAR_NAME }}.war
+  - name: Start {{JOB_NAME}} service
+    shell: nohup /opt/idc/apps/{{JOB_NAME}}/bin/startup.sh
+- hosts: "{{ TARGET_HOST }}"
+  tags:
+  - reboot
+  tasks:
+  - name: stop {{ JOB_NAME }} SERVER
+    shell: /opt/idc/apps/{{JOB_NAME}}/bin/shutdown.sh
+    ignore_errors: True
+  - name: Kill {{JOB_NAME}} process
+    shell: /bin/ps -efww|grep {{WAR_NAME}}|grep -v grep|awk '{ print $2 }'|xargs kill -9
+  - name: start {{ JOB_NAME }} SERVICE
+    shell: /opt/idc/apps/{{JOB_NAME}}/bin/startup.sh
+- hosts: "{{ TARGET_HOST }}"
+  tags: 
+  - fallback
+  tasks:
+  - name: Backup file whether exist
+    shell: find /opt/idc/apps/{{ JOB_NAME }}/webapps/ -type f -name "*.war.*" -exec ls -l {} \;
+    register: result
+  - name: Echo Backup file
+    debug:
+      msg: "{{ result.stdout }}"
+  - name: Backup file whether is only
+    shell: echo "More than one backup file or haven't backup file,fallback terminal"
+    when: result.stdout.count('war') != 1
+  - name: Backup file whether is only
+    shell: echo "Backup file is only one,execute fallback"
+    when: result.stdout.count('war') == 1
+  - name: Stop {{CHILD_NAME}} listen
+    shell: /opt/idc/apps/{{JOB_NAME}}/bin/shutdown.sh
+    ignore_errors: True
+    when: result.stdout.count('war') == 1
+  - name: Kill {{JOB_NAME}} process 
+    shell: /bin/ps -efww|grep {{WAR_NAME}}|grep -v grep|awk '{ print $2 }'|xargs kill -9
+    ignore_errors: True
+    when: result.stdout.count('war') == 1
+  - name: Replace {{JOB_NAME}} jar file
+    shell:  /bin/find /opt/idc/apps/{{ JOB_NAME }}/webapps/ -type f -name "*.war.*" -exec cp {} /opt/idc/apps/{{ JOB_NAME }}/webapps/{{ WAR_NAME }}.war \;
+    when: result.stdout.count('war') == 1
+  - name: Start {{JOB_NAME}} service
+    shell: nohup /opt/idc/apps/{{ JOB_NAME }}/bin/startup.sh
+    when: result.stdout.count('war') == 1
+
+  
+   
+  
