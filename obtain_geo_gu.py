@@ -1,0 +1,73 @@
+#!/usr/bin/python2.7
+# -*- coding:utf-8 -*-
+
+from datetime import datetime
+from elasticsearch import Elasticsearch
+import time
+import datetime
+import sys
+import json
+import urllib
+import urllib2
+import re
+import time
+
+
+def obtain(entity_name):
+    es = Elasticsearch(
+        ['10.214.0.134', '10.214.0.133'],
+        http_auth=('elastic', 'elastic'),
+    )
+    now_time = int(time.time() * 1000)
+    pre_time = int(time.time() * 1000 - 60 * 1000)
+    res = es.search(index="logstash-*", body={
+        "query": {
+            "bool": {
+                "must": [
+                    {
+                        "query_string": {
+                            "query": entity_name,
+                        }
+                    },
+                    {
+                        "range": {
+                            "@timestamp": {
+                                "gte": pre_time,
+                                "lte": now_time,
+                                "format": "epoch_millis"
+                            }
+                        }
+                    }
+                ],
+                "must_not": []
+            }
+        }
+    }
+                    )
+    #print("Got %d Hits:" % res['hits']['total'])
+    for hit in res['hits']['hits']:
+        created_time = time.strptime(hit["_source"]["created"], "%Y-%m-%dT%H:%M:%S.000Z")
+        created_time = int((time.mktime(created_time) * 1000 + 60 * 60 * 8 * 1000) / 1000)
+        geo_speed = (abs(hit["_source"]["geo_speed"]) / 1000) * 60 * 60
+        #print("%s %s %s %s %s" % (
+        #hit["_source"]["open_id"], created_time, hit["_source"]["geo_longitude"], hit["_source"]["geo_latitude"],
+        #geo_speed))
+        url = 'http://yingyan.baidu.com/api/v3/track/addpoint' 
+        headers = {'Content-type': 'application/x-www-form-urlencoded', 'Cache-Control': 'no-cache'}
+        data = {"ak":"1ZlE1lZBaNn0ZiHhL81wSWScvtA0Cq7P","service_id":"149272","entity_name":entity_name,
+		"latitude":hit["_source"]["geo_latitude"],"longitude":hit["_source"]["geo_longitude"],"loc_time":created_time,
+		"coord_type_input":"wgs84","speed":geo_speed}
+	data = urllib.urlencode(data)
+	print data
+	req = urllib2.Request(url,data,headers)
+        try:
+            f = urllib2.urlopen(req)
+	    print f.read()
+        except urllib2.HTTPError, e:
+            print e.code
+            print e.read()
+        else:
+            return f.read()
+    
+if __name__ == '__main__':
+     obtain('obAMY0b4kWtUao0LXCC5CbuqCyXg')
