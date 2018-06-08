@@ -1,0 +1,10 @@
+---
+- hosts: zx_test
+  tasks:
+    - name: insert/update zabbix_agent configuration stanza in /etc/zabbix/zabbix_agentd.conf
+    blockinfile:
+         path: /etc/zabbix/zabbix_agentd.conf
+         block:
+           Server=10.214.124.55,10.214.0.112
+           ServerActive=10.214.124.55,10.214.0.112
+...

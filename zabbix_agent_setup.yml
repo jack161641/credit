@@ -1,0 +1,34 @@
+- hosts: agent-install
+  tasks:
+  - name: Translate install package to Remote host
+    copy: src=/tmp/zabbix-3.2.4.tar.gz
+          dest=/tmp/zabbix-3.2.4.tar.gz 
+          force=yes
+  - name: Unzip source code package
+    unarchive:
+      src: /tmp/zabbix-3.2.4.tar.gz
+      dest: /tmp/
+  - name: Install zabbix agent
+    shell: cd /tmp/zabbix-3.2.4 && ./configure --enable-agent && make install
+  - name: copy zabbix_agent to dest
+    copy: src=/usr/local/etc/zabbix_agentd.conf
+          dest=/usr/local/etc/zabbix_agentd.conf
+          force=yes
+  - name: copy zabbix_agent directory to dest
+    copy: src=/usr/local/etc/zabbix_agentd.conf.d/
+          dest=/usr/local/etc/zabbix_agentd.conf.d/
+          force=yes
+  - name: stop remote host zabbix_agent
+    shell: pkill -f /usr/local/sbin/zabbix_agentd
+    ignore_errors: True
+  - name: Create log file
+    file:
+      path: /var/log/zabbix_agentd.log
+      state: touch
+      owner: zabbix
+      group: zabbix
+  - name: start remote host zabbix_agent
+    shell: /usr/local/sbin/zabbix_agentd -c /usr/local/etc/zabbix_agentd.conf
+
+
+    

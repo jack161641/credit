@@ -1,0 +1,10 @@
+- hosts: zx_route
+  tasks:
+  - name: Config crontab 
+    cron:
+      name: "Config backup script"
+      user: oracle
+      minute: "30"
+      hour: "0"
+      job: "python /tmp/backup.py /opt/idc/backup/credit-router/"
+      state: present
